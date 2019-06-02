@@ -4,6 +4,9 @@ model/
 # data file
 data/
 
+# bert model
+bert/
+
 # vs code cache
 .vscode
 
