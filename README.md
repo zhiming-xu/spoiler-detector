@@ -12,9 +12,9 @@ The original dataset has actually two files, one contains movie information: mov
 ## Model
 ### Manhattan LSTM
 Firstly I tried manhattan LSTM (malstm), this model was introduced in a [paper](https://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12195/12023) published on AAAI'16. It intends to measure the similarity between twn sentences, so I think it might be able to connect summary with spoiler. The model works as follows.
-- Use single direction LSTM to embed two input sentences into vectors $$\vec{v_1}$$, $$\vec{v_2}$$. 
-- Calculate the manhattan distance between these two vectors $$vec{d}=\vec{v_1}-\vec{v_2}$$.
-- Compute $$\exp(-\vec{d})$$, intuitively, this value is closer to 1 if $$\vec{d}$$ is small, i.e., two vector representions are alike. Thus we can use it to detect similarity in two sentences. However, when using this model on IMDB dataset, I found that it can only output the most common label although it worked on Quora duplicate question pair dataset. I think there are several reasons:
+- Use single direction LSTM to embed two input sentences into vectors $\vec{v_1}$, $\vec{v_2}$. 
+- Calculate the manhattan distance between these two vectors $vec{d}=\vec{v_1}-\vec{v_2}$.
+- Compute $\exp(-\vec{d})$, intuitively, this value is closer to 1 if $\vec{d}$ is small, i.e., two vector representions are alike. Thus we can use it to detect similarity in two sentences. However, when using this model on IMDB dataset, I found that it can only output the most common label although it worked on Quora duplicate question pair dataset. I think there are several reasons:
 - In Quora dataset, the lengths of questions are usually small, in fact, fewer of them exceed 50 words. But for IMDB dataset, the average length of review is 300 words, and that of plot summary is 100 words. This will result in LSTM memorizing a lot of information, which has long been a problem of its structure.
 - The spoiler in review might be very short, and takes a fairly small portion. So the review and plot summary can be quite different while the former still contains a spoiler. On this occasion, measure the element-wise is not reasonable and can produce inaccurate prediction.
 In fact, when tested on this model, I found that for short plot and one sentence review (also a spoiler) made up by myself, it could predicts the right label. But for IMDB dataset, it failed to produce useful result.
