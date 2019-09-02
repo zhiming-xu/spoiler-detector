@@ -32,6 +32,9 @@ class mp_tokenizer:
         end = time.time()
         print('Done! Sequence clipping and get length Time={:.2f}s, #Sentences={}'.format(end - start, len(data)))
         return data, lengths
+    
+    def __call__(self, data):
+        return self.tokenizer(data)
 
 class mp_indexer:
     '''
