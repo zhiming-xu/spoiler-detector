@@ -113,4 +113,5 @@ def browse_wiki(url):
     '''
     header = random.choice(USER_AGENTS)
     page = requests.get(url, headers=header).text
+    # TODO wikipedia seems to have an API for getting a specific section of a page
 
