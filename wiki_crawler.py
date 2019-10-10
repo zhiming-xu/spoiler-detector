@@ -15,7 +15,7 @@ logger.setLevel(logging.DEBUG)
 IMDB_URL = 'https://imdb.com/title/'
 IMDB_XPATH = ['//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()', \
               '//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/span/a/text()']
-GOOGLE_SITES = ['https://www.google.com/search?&q=', 'https://www.google.com.hk/search?&q=', \
+GOOGLE_SITES = ['https://www.google.com.hk/search?&q=', 'https://www.google.com/search?&q=', \
                 'https://www.google.com.sg/search?&q=', 'https://www.google.co.uk/search?&q=', \
                 'https://www.google.com.tw/search?&q=', 'https://www.google.com.au/search?&q=']
 
@@ -59,12 +59,13 @@ def browse_imdb(id):
         id - the IMDb primary key of a specific movie
     return value:
         id - same as input
-        name - `movie_name`        
+        name - `movie_name`     
     '''
     imdb_url = IMDB_URL + id
-    request = requests.get(imdb_url)
-    tree = etree.HTML(request.text)
+    imdb_page = requests.get(imdb_url).text
+    tree = etree.HTML(imdb_page)
     name = tree.xpath(IMDB_XPATH[0])[0].strip()
+    print('Finish {}'.format(id))
     return id, name
 
 def batch_browse_imdb(ids):
@@ -73,7 +74,7 @@ def batch_browse_imdb(ids):
     params:
         ids - a list of IDs
     return value:
-        ids_names - a dict, key is IMDb ID, value is `movie_name<space>release_year` 
+        ids_names - a dict, key is IMDb ID, value movie_name
     '''
     with mp.Pool() as pool:
         results = pool.map(browse_imdb, ids)
@@ -110,10 +111,11 @@ def search_google(query):
         url = link.get('href')
         print(url)
         if url and 'en.wikipedia.org' in url:
+            # return the wikipage name, e.g., Black_Panther_(film)
             return url.split('/')[-1]
     return None
 
-def browse_wiki(page_name):
+def browse_wiki(page):
     '''
     this function will browse the wikipedia page at `url` and retrieve the 'plot'
     section of this movie
@@ -124,10 +126,24 @@ def browse_wiki(page_name):
         of every wikipage, as set in `PARAMS`
     '''
     params = WIKI_PARAMS
-    params['page'] = page_name
+    params['page'] = page
     session = requests.Session()
-    raw_data = session.get(url=WIKI_URL, params=params).json()
-    return raw_data['parse']['wikitext']['*']
+    raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+    return page, plot_extractor(raw_data['parse']['wikitext']['*'])
+
+def batch_browse_wiki(pages):
+    '''
+    this function will do browse_wiki on page_names with the help of
+    multiprocessing
+    '''
+    with mp.Pool() as pool:
+        results = pool.map(browse_wiki, pages)
+    pages_plots = dict()
+    
+    for result in results:
+        pages_plots[result[0]] = results[1]
+
+    return pages_plots
 
 def plot_extractor(raw_plot):
     '''
@@ -142,4 +158,35 @@ def plot_extractor(raw_plot):
            (r'\n+', ' '), (r'.+\-\->', '')
 
     plot = reduce(lambda a, sub: re.sub(*sub, a), subs, raw_plot)
-    return plot
+    return plot.strip()
+
+if __name__ == '__main__':
+    # hard code for now
+    logger.warning('Load original json file as pandas dataframe')
+    df_movies = pd.read_json('./data/imdb/IMDB_movie_details.json', lines=True)
+    ids = df_movies['movie_id'].tolist()
+    
+    logger.warning('Batch browse IMDb pages of the movies')
+    ids_movies = batch_browse_imdb(ids)
+    
+    ids_pages = dict()
+    for id in ids_movies:
+        ids_pages[id] = search_google(ids_movies[id])
+    
+    logger.warning('Batch browse wikipedia pages of the movies')
+    pages = list(ids_pages.values())
+    pages_plots = batch_browse_wiki(pages)
+    for id in ids_pages:
+        # now ids_pages' keys are movie plots
+        ids_pages[id] = pages_plots[ids_pages[id]]
+    for row in df_movies.iterrows():
+        # modify original plot_summary to the one we get from wikipedia
+        row['plot_summary'] = ids_pages[row['movie_id']]
+    logger.warning('Finish! save dataframe to ./data/imdb/plot.csv')
+    df_movies.to_csv('./data/imdb/plot.csv')
+
+
+
+
+
+
