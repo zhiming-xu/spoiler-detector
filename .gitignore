@@ -1,3 +1,6 @@
+# debug file
+*.json
+
 # text file
 text*.py
 

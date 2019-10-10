@@ -202,7 +202,11 @@ if __name__ == '__main__':
     
     logger.warning('Batch browse IMDb pages of the movies')
     ids_movies = batch_browse_imdb(ids)
-    
+
+    logger.debug('Save ids_movies to offline')
+    with open('./ids_movies.json', 'w') as f:
+        f.write(json.dumps(ids_movies))
+
     ids_pages = dict()
     for id in ids_movies:
         ids_pages[id] = search_google(ids_movies[id])
