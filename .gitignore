@@ -1,8 +1,8 @@
 # debug file
 *.json
 
-# text file
-text*.py
+# test file
+test*.py
 
 # model file
 model/

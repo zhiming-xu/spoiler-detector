@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 console_handler = logging.StreamHandler()
 file_handler = logging.FileHandler('wiki_crawler.log')
 
-console_handler.setLevel(logging.WARNING)
-file_handler.setLevel(logging.DEBUG)
+console_handler.setLevel(logging.DEBUG)
+file_handler.setLevel(logging.ERROR)
 
 console_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 file_format = logging.Formatter('%(asctime)s: %(name)s - %(levelname)s - %(message)s')
@@ -32,7 +32,7 @@ GOOGLE_SITES = ['https://www.google.com.hk/search?&q=', 'https://www.google.com/
                 'https://www.google.com.tw/search?&q=', 'https://www.google.com.au/search?&q=']
 
 USER_AGENTS = [{"Accept": "*/*",
-               "Accept-Language": "zh,zh-CN,en-US,en;q=0.8",
+               "Accept-Language": "en-US,en;q=0.8",
                "Cache-Control": "max-age=0",
                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36",
                "Connection": "keep-alive",
@@ -43,24 +43,30 @@ USER_AGENTS = [{"Accept": "*/*",
                 "Cache-Control": "max-age=0",
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8",
                 "Connection": "keep-alive",
-                "Referer": "https://www.google.com/"
+                "Referer": "https://www.imdb.com/"
                },
                {"Accept": "*/*",
                 "Accept-Language": "zh,zh-CN,en-US,en;q=0.8",
                 "Cache-Control": "max-age=0",
-                "User-Agent": "Mozilla/5.0 (Linux; U; Android 6.0.1; zh-CN; F5121 Build/34.0.A.1.247) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/40.0.2214.89 UCBrowser/11.5.1.944 Mobile Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
                 "Connection": "keep-alive",
-                "Referer": "https://www.google.com/"
+                "Referer": "https://www.netflix.com/"
                }
                ]
 
 WIKI_URL = 'https://en.wikipedia.org/w/api.php'
-WIKI_PARAMS = {
+WIKI_BROWSE_PARAMS = {
     "action": "parse",
     "page": None,
     "format": "json",
     "prop": "wikitext",
     "section": 1
+}
+WIKI_SEARCH_PARAMS = {
+    "action": "query",
+    "format": "json",
+    "list": "search",
+    "srsearch": None
 }
 
 def browse_imdb(id):
@@ -118,15 +124,15 @@ def search_google(query):
         wiki page name - the movie's wikipedia page's name
     '''
     google_prefix = random.choice(GOOGLE_SITES)
-    google_url = google_prefix + query
+    google_url = google_prefix + query + 'film'
     header = random.choice(USER_AGENTS)
     
     try:
-        page = requests.get(url=google_url, headers=header).text
+        page = requests.get(url=google_url, headers=header, timeout=5).text
     except Exception as e:
         logger.error('Exception {} occurs in search'.format(e), exc_info=True)
         if google_prefix != GOOGLE_SITES[0]:
-            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header).text
+            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3).text
         else:
             return None
 
@@ -138,6 +144,41 @@ def search_google(query):
             return url.split('/')[-1]
     return None
 
+def search_wiki(name):
+    '''
+    this function will use wikipedia api for searching the movie name + 'film',
+    and will assume the first result is the desired page
+    '''
+    params = WIKI_SEARCH_PARAMS
+    params['srsearch'] = name + ' film'
+    session = requests.Session()
+    try:
+        raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+    except Exception as e:
+        logger.info('Exception {} occurs in search_wiki, will retry once'.format(e), exc_info=True)
+        try:
+            raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+        except Exception as e:
+            logger.error('Exception {} occurs when retrying search_wiki, abort movie_name: {}' \
+                            .format(e, name))
+            return
+            
+    return name, plot_extractor(raw_data['query']['search'][0]['title'])
+
+def batch_search_wiki(names):
+    '''
+    this function will do search_wiki on names with the help of multiprocessing
+    '''
+    with mp.Pool() as pool:
+        results = pool.map(search_wiki, names)
+    names_pages = dict()
+    
+    for result in results:
+        if result:
+            names_pages[result[0]] = result[1]
+    
+    return names_pages
+
 def browse_wiki(page):
     '''
     this function will browse the wikipedia page at `url` and retrieve the 'plot'
@@ -148,7 +189,7 @@ def browse_wiki(page):
         a string, the 'plot' section of this page, hopefully it is the first section
         of every wikipage, as set in `PARAMS`
     '''
-    params = WIKI_PARAMS
+    params = WIKI_BROWSE_PARAMS
     params['page'] = page
     session = requests.Session()
     try:
@@ -175,7 +216,7 @@ def batch_browse_wiki(pages):
     
     for result in results:
         if result:
-            pages_plots[result[0]] = results[1]
+            pages_plots[result[0]] = result[1]
 
     return pages_plots
 
@@ -207,14 +248,17 @@ if __name__ == '__main__':
     with open('./ids_movies.json', 'w') as f:
         f.write(json.dumps(ids_movies))
 
+    names = list(ids_movies.values())
+    names_pages = batch_search_wiki(names)
+
     ids_pages = dict()
     for id in ids_movies:
-        ids_pages[id] = search_google(ids_movies[id])
-    
+        ids_pages[id] = names_pages[ids_movies[id]]
+
     json_ids_pages = json.dumps(ids_pages)
 
     logger.info('Write ids_pages to json file')    
-    with open('ids_pages.json', 'w') as f:
+    with open('./ids_pages.json', 'w') as f:
         f.write(json_ids_pages)
 
     logger.warning('Batch browse wikipedia pages of the movies')
