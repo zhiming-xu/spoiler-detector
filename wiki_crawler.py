@@ -2,15 +2,27 @@ import requests
 import random
 import multiprocessing as mp
 import pandas as pd
-import csv
+import csv, json
 import logging
-import re
+import re, time
 from bs4 import BeautifulSoup
 from lxml import etree
 from functools import reduce
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler()
+file_handler = logging.FileHandler('wiki_crawler.log')
+
+console_handler.setLevel(logging.WARNING)
+file_handler.setLevel(logging.DEBUG)
+
+console_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+file_format = logging.Formatter('%(asctime)s: %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_format)
+file_handler.setFormatter(file_format)
+
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
 IMDB_URL = 'https://imdb.com/title/'
 IMDB_XPATH = ['//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()', \
@@ -62,7 +74,18 @@ def browse_imdb(id):
         name - `movie_name`     
     '''
     imdb_url = IMDB_URL + id
-    imdb_page = requests.get(imdb_url).text
+    try:
+        imdb_page = requests.get(imdb_url).text
+    except Exception as e:
+        logger.info('Exception {} occurs in browse_imdb, will retry once'.format(e))
+        time.sleep(1)
+        try:
+            imdb_page = requests.get(imdb_url).text
+        except Exception as e:
+            logger.error('Exception {} occurs when retrying browse_imdb, abort movie_id: {}' \
+                         .format(e, id))
+            return
+
     tree = etree.HTML(imdb_page)
     name = tree.xpath(IMDB_XPATH[0])[0].strip()
     print('Finish {}'.format(id))
@@ -81,7 +104,8 @@ def batch_browse_imdb(ids):
     
     ids_names = dict()
     for result in results:
-        ids_names[result[0]] = result[1]
+        if result:
+            ids_names[result[0]] = result[1]
     
     return ids_names
 
@@ -109,7 +133,6 @@ def search_google(query):
     soup = BeautifulSoup(page, 'html.parser')
     for link in soup.find_all('a'):
         url = link.get('href')
-        print(url)
         if url and 'en.wikipedia.org' in url:
             # return the wikipage name, e.g., Black_Panther_(film)
             return url.split('/')[-1]
@@ -128,7 +151,17 @@ def browse_wiki(page):
     params = WIKI_PARAMS
     params['page'] = page
     session = requests.Session()
-    raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+    try:
+        raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+    except Exception as e:
+        logger.info('Exception {} occurs in browse_wiki, will retry once'.format(e), exc_info=True)
+        try:
+            raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
+        except Exception as e:
+            logger.error('Exception {} occurs when retrying browse_wiki, abort page_name: {}' \
+                            .format(e, page))
+            return
+            
     return page, plot_extractor(raw_data['parse']['wikitext']['*'])
 
 def batch_browse_wiki(pages):
@@ -141,7 +174,8 @@ def batch_browse_wiki(pages):
     pages_plots = dict()
     
     for result in results:
-        pages_plots[result[0]] = results[1]
+        if result:
+            pages_plots[result[0]] = results[1]
 
     return pages_plots
 
@@ -173,6 +207,12 @@ if __name__ == '__main__':
     for id in ids_movies:
         ids_pages[id] = search_google(ids_movies[id])
     
+    json_ids_pages = json.dumps(ids_pages)
+
+    logger.info('Write ids_pages to json file')    
+    with open('ids_pages.json', 'w') as f:
+        f.write(json_ids_pages)
+
     logger.warning('Batch browse wikipedia pages of the movies')
     pages = list(ids_pages.values())
     pages_plots = batch_browse_wiki(pages)
