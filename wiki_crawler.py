@@ -27,6 +27,7 @@ logger.addHandler(file_handler)
 IMDB_URL = 'https://imdb.com/title/'
 IMDB_XPATH = ['//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()', \
               '//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/span/a/text()']
+'''
 GOOGLE_SITES = ['https://www.google.com.hk/search?&q=', 'https://www.google.com/search?&q=', \
                 'https://www.google.com.sg/search?&q=', 'https://www.google.co.uk/search?&q=', \
                 'https://www.google.com.tw/search?&q=', 'https://www.google.com.au/search?&q=']
@@ -53,6 +54,7 @@ USER_AGENTS = [{"Accept": "*/*",
                 "Referer": "https://www.netflix.com/"
                }
                ]
+'''
 
 WIKI_URL = 'https://en.wikipedia.org/w/api.php'
 WIKI_BROWSE_PARAMS = {
@@ -115,6 +117,7 @@ def batch_browse_imdb(ids):
     
     return ids_names
 
+"""
 def search_google(query):
     '''
     this function will google `query`, and find the wikipedia page of this movie
@@ -143,6 +146,7 @@ def search_google(query):
             # return the wikipage name, e.g., Black_Panther_(film)
             return url.split('/')[-1]
     return None
+"""
 
 def search_wiki(name):
     '''
@@ -202,8 +206,15 @@ def browse_wiki(page):
             logger.error('Exception {} occurs when retrying browse_wiki, abort page_name: {}' \
                             .format(e, page))
             return
+    
+    try:
+        raw_plot = raw_data['parse']['wikitext']['*']
+    except Exception as e:
+        logger.error('Exception {}: This is a wrong page {}' \
+                     .format(e, page))
+        return
             
-    return page, plot_extractor(raw_data['parse']['wikitext']['*'])
+    return page, plot_extractor(raw_plot)
 
 def batch_browse_wiki(pages):
     '''
@@ -215,7 +226,7 @@ def batch_browse_wiki(pages):
     pages_plots = dict()
     
     for result in results:
-        if result:
+        if result and result[1]:
             pages_plots[result[0]] = result[1]
 
     return pages_plots
@@ -229,6 +240,13 @@ def plot_extractor(raw_plot):
     return value:
         string, substitute '[[text_a|text_b]]' in raw_plot with 'text_b'
     '''
+    # FIXME this could also be "Synopsis"
+    title_pattern = r'==.*?Plot.*?=='
+    if not re.match(title_pattern, raw_plot):
+        logger.error('This is not an actual raw_plot, skipping...')
+        logger.warning('First several words: {}'.format(raw_plot[:64]))
+        return
+
     subs = (r'\{\{.+?\}\}', ''), (r'\[\[(.*?\|){0,1}(.*?)\]\]', r'\2'), \
            (r'\n+', ' '), (r'.+\-\->', '')
 
@@ -265,7 +283,7 @@ if __name__ == '__main__':
     pages = list(ids_pages.values())
     pages_plots = batch_browse_wiki(pages)
     for id in ids_pages:
-        # now ids_pages' keys are movie plots
+        # now ids_pages' values are movie plots
         ids_pages[id] = pages_plots[ids_pages[id]]
     for row in df_movies.iterrows():
         # modify original plot_summary to the one we get from wikipedia
