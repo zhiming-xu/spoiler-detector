@@ -1,6 +1,6 @@
 ---
 title: Motivation and Introduction
-date: 2019-06-24 15:32:00
+date: 2019-10-10 22:01:00
 ---
 ## Introduction
 ### Motivation
