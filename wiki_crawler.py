@@ -25,9 +25,9 @@ USER_AGENTS = [{"Accept": "*/*",
                "Referer": "https://www.google.com/"
                },
                {"Accept": "*/*",
-                "Accept-Language": "zh,zh-CN,en-US,en;q=0.8",
+                "Accept-Language": "en-US,en;q=0.8",
                 "Cache-Control": "max-age=0",
-                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Mobile/15E148 Safari/604.1",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8",
                 "Connection": "keep-alive",
                 "Referer": "https://www.google.com/"
                },
@@ -39,6 +39,15 @@ USER_AGENTS = [{"Accept": "*/*",
                 "Referer": "https://www.google.com/"
                }
                ]
+
+WIKI_URL = 'https://en.wikipedia.org/w/api.php'
+WIKI_PARAMS = {
+    "action": "parse",
+    "page": None,
+    "format": "json",
+    "prop": "wikitext",
+    "section": 1
+}
 
 def browse_imdb(id):
     '''
@@ -79,7 +88,7 @@ def search_google(query):
     params:
         query - movie name
     return value:
-        wiki_url - wikipedia page of this movie
+        wiki page name - the movie's wikipedia page's name
     '''
     google_prefix = random.choice(GOOGLE_SITES)
     google_url = google_prefix + query
@@ -99,19 +108,23 @@ def search_google(query):
         url = link.get('href')
         print(url)
         if url and 'en.wikipedia.org' in url:
-            return url
+            return url.split('/')[-1]
     return None
 
-def browse_wiki(url):
+def browse_wiki(page_name):
     '''
     this function will browse the wikipedia page at `url` and retrieve the 'plot'
     section of this movie
     params:
         url - url to a wikipedia page of a movie
     return value:
-        plot - a string, the 'plot' section of this page
+        a string, the 'plot' section of this page, hopefully it is the first section
+        of every wikipage, as set in `PARAMS`
     '''
-    header = random.choice(USER_AGENTS)
-    page = requests.get(url, headers=header).text
-    # TODO wikipedia seems to have an API for getting a specific section of a page
+    params = WIKI_PARAMS
+    params['page'] = page_name
+    session = requests.Session()
+    js = session.get(url=WIKI_URL, params=params)
+    raw_data = js.json()
+    return raw_data['parse']['wikitext']['*']
 
