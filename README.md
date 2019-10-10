@@ -2,6 +2,22 @@
 title: Motivation and Introduction
 date: 2019-10-10 22:01:00
 ---
+<!-- TOC -->
+
+- [Introduction](#introduction)
+  - [Motivation](#motivation)
+  - [Data preprocessing](#data-preprocessing)
+- [Model](#model)
+  - [Manhattan LSTM](#manhattan-lstm)
+  - [Self-attention sentence embedding](#self-attention-sentence-embedding)
+  - [Enhanced LSTM for natural language inference (ESIM)](#enhanced-lstm-for-natural-language-inference-esim)
+    - [Sentence embedding and first bi-lstm pass](#sentence-embedding-and-first-bi-lstm-pass)
+    - [Soft alignment](#soft-alignment)
+    - [Information enhancement and composition](#information-enhancement-and-composition)
+    - [Pooling and output layer](#pooling-and-output-layer)
+    - [Visualize result](#visualize-result)
+
+<!-- /TOC -->
 ## Introduction
 ### Motivation
 I believe that many people dislike spoilers just like me, especially for the upcoming movies, TV series, and animes. Although
