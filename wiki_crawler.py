@@ -4,8 +4,10 @@ import multiprocessing as mp
 import pandas as pd
 import csv
 import logging
+import re
 from bs4 import BeautifulSoup
 from lxml import etree
+from functools import reduce
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -124,7 +126,20 @@ def browse_wiki(page_name):
     params = WIKI_PARAMS
     params['page'] = page_name
     session = requests.Session()
-    js = session.get(url=WIKI_URL, params=params)
-    raw_data = js.json()
+    raw_data = session.get(url=WIKI_URL, params=params).json()
     return raw_data['parse']['wikitext']['*']
 
+def plot_extractor(raw_plot):
+    '''
+    this function will extract the raw plot summary returned by `browse_wiki`, and
+    remove the redundant/unnecessary punctuations and words
+    params:
+        raw_plot - plot section of wikipage
+    return value:
+        string, substitute '[[text_a|text_b]]' in raw_plot with 'text_b'
+    '''
+    subs = (r'\{\{.+?\}\}', ''), (r'\[\[(.*?\|){0,1}(.*?)\]\]', r'\2'), \
+           (r'\n+', ' '), (r'.+\-\->', '')
+
+    plot = reduce(lambda a, sub: re.sub(*sub, a), subs, raw_plot)
+    return plot
