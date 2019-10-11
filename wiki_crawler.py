@@ -1,3 +1,10 @@
+# !/usr/bin/env python3
+# This script will crawl wikipedia (with API) and search Google
+# to retrieve a movie's plot summary/synopsis according to its
+# IMDb ID (in the format of regex '^tt\d{7}$')
+# Note: Due to constant network error when browsing imdb/google,
+# I cannot guarantee that this script runs smoothly. So many
+# checkpoint is instered to minimize potential data loss.
 import requests
 import random
 import multiprocessing as mp
@@ -129,11 +136,11 @@ def search_google(query):
     header = random.choice(USER_AGENTS)
     
     try:
-        page = requests.get(url=google_url, headers=header, timeout=5).text
+        page = requests.get(url=google_url, headers=header, timeout=5, proxies={"https": "socks5h://localhost:1080"}).text
     except Exception as e:
         logger.error('Exception {} occurs in search'.format(e), exc_info=True)
         if google_prefix != GOOGLE_SITES[0]:
-            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3).text
+            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3, proxies={"https": "socks5h://localhost:1080"}).text
         else:
             return None
 
@@ -237,11 +244,11 @@ def plot_extractor(raw_plot):
     return value:
         string, substitute '[[text_a|text_b]]' in raw_plot with 'text_b'
     '''
-    # FIXME this could also be "Synopsis"
-    title_pattern = r'==.*?Plot.*?=='
+    # this section could be named "Plot" or "Synopsis"
+    title_pattern = r'==.*?(:?Plot|Synopsis).*?=='
     if not re.match(title_pattern, raw_plot):
         logger.error('This is not an actual raw_plot, skipping...')
-        logger.warning('First several words: {}'.format(raw_plot[:64]))
+        logger.warning('First several words: {}'.format(raw_plot[:128]))
         return
 
     subs = (r'\{\{.+?\}\}', ''), (r'\[\[(.*?\|){0,1}(.*?)\]\]', r'\2'), \
@@ -261,35 +268,37 @@ if __name__ == '__main__':
 
     logger.debug('Save ids_movies to offline')
     with open('./ids_movies.json', 'w') as f:
-        f.write(json.dumps(ids_movies))
+        json.dump(ids_movies, f)
 
     names = list(ids_movies.values())
     names_pages = batch_search_wiki(names)
 
     ids_pages = dict()
     for id in ids_movies:
-        ids_pages[id] = names_pages[ids_movies[id]]
-
-    json_ids_pages = json.dumps(ids_pages)
+        try:
+            ids_pages[id] = names_pages[ids_movies[id]]
+        except Exception as e:
+            logger.warning('No wikipage found for {} - {}'.format(ids, ids_movies[id]))
 
     logger.info('Write ids_pages to json file')    
     with open('./ids_pages.json', 'w') as f:
-        f.write(json_ids_pages)
+        json.dump(ids_pages, f)
 
     logger.warning('Batch browse wikipedia pages of the movies')
     pages = list(ids_pages.values())
     pages_plots = batch_browse_wiki(pages)
+
+    ids_plots = dict()
     for id in ids_pages:
         # now ids_pages' values are movie plots
-        ids_pages[id] = pages_plots[ids_pages[id]]
+        ids_plots[id] = pages_plots[ids_pages[id]]
     for row in df_movies.iterrows():
         # modify original plot_summary to the one we get from wikipedia
-        row['plot_summary'] = ids_pages[row['movie_id']]
+        try:
+            row['plot_summary'] = ids_plots[row['movie_id']]
+        except Exception as e:
+            logger.warning('No wiki plot for {} - {}. Keep filed plot_summary as original' \
+                           .format(ids, ids_movies[ids]))
+
     logger.warning('Finish! save dataframe to ./data/imdb/plot.csv')
     df_movies.to_csv('./data/imdb/plot.csv')
-
-
-
-
-
-
