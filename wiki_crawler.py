@@ -138,7 +138,7 @@ def search_google(query):
     try:
         page = requests.get(url=google_url, headers=header, timeout=5, proxies={"https": "socks5h://localhost:1080"}).text
     except Exception as e:
-        logger.error('Exception {} occurs in search'.format(e), exc_info=True)
+        logger.error('Exception {} occurs in search'.format(e))
         if google_prefix != GOOGLE_SITES[0]:
             page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3, proxies={"https": "socks5h://localhost:1080"}).text
         else:
@@ -163,7 +163,7 @@ def search_wiki(name):
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
     except Exception as e:
-        logger.info('Exception {} occurs in search_wiki, will retry once'.format(e), exc_info=True)
+        logger.info('Exception {} occurs in search_wiki, will retry once'.format(e))
         try:
             raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
         except Exception as e:
@@ -203,7 +203,7 @@ def browse_wiki(page):
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
     except Exception as e:
-        logger.info('Exception {} occurs in browse_wiki, will retry once'.format(e), exc_info=True)
+        logger.info('Exception {} occurs in browse_wiki, will retry once'.format(e))
         try:
             raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
         except Exception as e:
