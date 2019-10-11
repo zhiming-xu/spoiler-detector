@@ -27,7 +27,7 @@ logger.addHandler(file_handler)
 IMDB_URL = 'https://imdb.com/title/'
 IMDB_XPATH = ['//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()', \
               '//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/span/a/text()']
-'''
+
 GOOGLE_SITES = ['https://www.google.com.hk/search?&q=', 'https://www.google.com/search?&q=', \
                 'https://www.google.com.sg/search?&q=', 'https://www.google.co.uk/search?&q=', \
                 'https://www.google.com.tw/search?&q=', 'https://www.google.com.au/search?&q=']
@@ -54,7 +54,6 @@ USER_AGENTS = [{"Accept": "*/*",
                 "Referer": "https://www.netflix.com/"
                }
                ]
-'''
 
 WIKI_URL = 'https://en.wikipedia.org/w/api.php'
 WIKI_BROWSE_PARAMS = {
@@ -117,7 +116,6 @@ def batch_browse_imdb(ids):
     
     return ids_names
 
-"""
 def search_google(query):
     '''
     this function will google `query`, and find the wikipedia page of this movie
@@ -127,7 +125,7 @@ def search_google(query):
         wiki page name - the movie's wikipedia page's name
     '''
     google_prefix = random.choice(GOOGLE_SITES)
-    google_url = google_prefix + query + 'film'
+    google_url = google_prefix + query + ' film'
     header = random.choice(USER_AGENTS)
     
     try:
@@ -146,7 +144,6 @@ def search_google(query):
             # return the wikipage name, e.g., Black_Panther_(film)
             return url.split('/')[-1]
     return None
-"""
 
 def search_wiki(name):
     '''
