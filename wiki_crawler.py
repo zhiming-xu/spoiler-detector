@@ -1,10 +1,10 @@
 # !/usr/bin/env python3
 # This script will crawl wikipedia (with API) and search Google
 # to retrieve a movie's plot summary/synopsis according to its
-# IMDb ID (in the format of regex '^tt\d{7}$')
+# IMDb ID (in the format of regex r'^tt\d{7}$')
 # Note: Due to constant network error when browsing imdb/google,
 # I cannot guarantee that this script runs smoothly. So many
-# checkpoint is instered to minimize potential data loss.
+# checkpoints is instered to minimize potential data loss.
 import requests
 import random
 import multiprocessing as mp
