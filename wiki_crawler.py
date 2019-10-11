@@ -32,9 +32,7 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 IMDB_URL = 'https://imdb.com/title/'
-IMDB_XPATH = ['//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/text()', \
-              '//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1/span/a/text()']
-
+IMDB_XPATH = '//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1'
 GOOGLE_SITES = ['https://www.google.com.hk/search?&q=', 'https://www.google.com/search?&q=', \
                 'https://www.google.com.sg/search?&q=', 'https://www.google.co.uk/search?&q=', \
                 'https://www.google.com.tw/search?&q=', 'https://www.google.com.au/search?&q=']
@@ -85,13 +83,13 @@ def browse_imdb(id):
         id - the IMDb primary key of a specific movie
     return value:
         id - same as input
-        name - `movie_name`     
+        name - movie name with its release year, such as "The Fate of The Furious (2017)"
     '''
     imdb_url = IMDB_URL + id
     try:
         imdb_page = requests.get(imdb_url).text
     except Exception as e:
-        logger.info('Exception {} occurs in browse_imdb, will retry once'.format(e))
+        logger.warning('Exception {} occurs in browse_imdb, will retry once'.format(e))
         time.sleep(1)
         try:
             imdb_page = requests.get(imdb_url).text
@@ -101,7 +99,8 @@ def browse_imdb(id):
             return
 
     tree = etree.HTML(imdb_page)
-    name = tree.xpath(IMDB_XPATH[0])[0].strip()
+    node = tree.xpath(IMDB_XPATH)[0]
+    name = ''.join(node.itertext()).replace(u'\xa0', u' ').strip()
     print('Finish {}'.format(id))
     return id, name
 
@@ -163,7 +162,7 @@ def search_wiki(name):
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
     except Exception as e:
-        logger.info('Exception {} occurs in search_wiki, will retry once'.format(e))
+        logger.warning('Exception {} occurs in search_wiki, will retry once'.format(e))
         try:
             raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
         except Exception as e:
@@ -200,10 +199,11 @@ def browse_wiki(page):
     params = WIKI_BROWSE_PARAMS
     params['page'] = page
     session = requests.Session()
+    session.proxies.update({"https": "socks5h://localhost:1080"})
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
     except Exception as e:
-        logger.info('Exception {} occurs in browse_wiki, will retry once'.format(e))
+        logger.warning('Exception {} occurs in browse_wiki, will retry once'.format(e))
         try:
             raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
         except Exception as e:
@@ -248,43 +248,43 @@ def plot_extractor(raw_plot):
     title_pattern = r'==.*?(:?Plot|Synopsis).*?=='
     if not re.match(title_pattern, raw_plot):
         logger.error('This is not an actual raw_plot, skipping...')
-        logger.warning('First several words: {}'.format(raw_plot[:128]))
+        logger.warning('First several words: {}'.format(raw_plot[:100]))
         return
 
     subs = (r'\{\{.+?\}\}', ''), (r'\[\[(.*?\|){0,1}(.*?)\]\]', r'\2'), \
-           (r'\n+', ' '), (r'.+\-\->', '')
+           (r'\n+', ' '), (r'<.*?>', ''), (title_pattern, '')
 
     plot = reduce(lambda a, sub: re.sub(*sub, a), subs, raw_plot)
     return plot.strip()
 
 if __name__ == '__main__':
+    logger.info('Load original json file as pandas dataframe')
     # hard code for now
-    logger.warning('Load original json file as pandas dataframe')
     df_movies = pd.read_json('./data/imdb/IMDB_movie_details.json', lines=True)
     ids = df_movies['movie_id'].tolist()
-    
-    logger.warning('Batch browse IMDb pages of the movies')
+
+    logger.info('Batch browse IMDb pages of the movies')
     ids_movies = batch_browse_imdb(ids)
 
-    logger.debug('Save ids_movies to offline')
+    logger.info('Save ids_movies to offline')
     with open('./ids_movies.json', 'w') as f:
         json.dump(ids_movies, f)
 
-    names = list(ids_movies.values())
-    names_pages = batch_search_wiki(names)
+    movies = list(ids_movies.values())
+    movies_pages = batch_search_wiki(movies)
 
     ids_pages = dict()
     for id in ids_movies:
         try:
-            ids_pages[id] = names_pages[ids_movies[id]]
+            ids_pages[id] = movies_pages[ids_movies[id]]
         except Exception as e:
-            logger.warning('No wikipage found for {} - {}'.format(ids, ids_movies[id]))
+            logger.error('No wikipage found for {} - {}'.format(ids, ids_movies[id]))
 
     logger.info('Write ids_pages to json file')    
     with open('./ids_pages.json', 'w') as f:
         json.dump(ids_pages, f)
 
-    logger.warning('Batch browse wikipedia pages of the movies')
+    logger.info('Batch browse wikipedia pages of the movies')
     pages = list(ids_pages.values())
     pages_plots = batch_browse_wiki(pages)
 
@@ -297,8 +297,8 @@ if __name__ == '__main__':
         try:
             row['plot_summary'] = ids_plots[row['movie_id']]
         except Exception as e:
-            logger.warning('No wiki plot for {} - {}. Keep filed plot_summary as original' \
+            logger.error('No wiki plot for {} - {}. Keep filed plot_summary as original' \
                            .format(ids, ids_movies[ids]))
 
-    logger.warning('Finish! save dataframe to ./data/imdb/plot.csv')
+    logger.info('Finish! save dataframe to ./data/imdb/plot.csv')
     df_movies.to_csv('./data/imdb/plot.csv')
