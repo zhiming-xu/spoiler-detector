@@ -157,7 +157,7 @@ def search_wiki(name):
     and will assume the first result is the desired page
     '''
     params = WIKI_SEARCH_PARAMS
-    params['srsearch'] = name + ' film'
+    params['srsearch'] = name
     session = requests.Session()
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
@@ -170,7 +170,7 @@ def search_wiki(name):
                             .format(e, name))
             return
             
-    return name, plot_extractor(raw_data['query']['search'][0]['title'])
+    return name, raw_data['query']['search'][0]['title']
 
 def batch_search_wiki(names):
     '''
@@ -217,7 +217,7 @@ def browse_wiki(page):
                      .format(e, page))
         return
             
-    return page, plot_extractor(raw_plot)
+    return page, plot_extractor(raw_plot, page)
 
 def batch_browse_wiki(pages):
     '''
@@ -234,7 +234,7 @@ def batch_browse_wiki(pages):
 
     return pages_plots
 
-def plot_extractor(raw_plot):
+def plot_extractor(raw_plot, page=''):
     '''
     this function will extract the raw plot summary returned by `browse_wiki`, and
     remove the redundant/unnecessary punctuations and words
@@ -246,7 +246,7 @@ def plot_extractor(raw_plot):
     # this section could be named "Plot" or "Synopsis"
     title_pattern = r'==.*?(:?Plot|Synopsis).*?=='
     if not re.match(title_pattern, raw_plot):
-        logger.error('This is not an actual raw_plot, skipping...')
+        logger.error('This is not an actual raw_plot for {}, skipping...'.format(page))
         logger.warning('First several words: {}'.format(raw_plot[:100]))
         return
 
@@ -261,7 +261,7 @@ if __name__ == '__main__':
     # hard code for now
     df_movies = pd.read_json('../data/imdb/IMDB_movie_details.json', lines=True)
     ids = df_movies['movie_id'].tolist()
-
+    
     logger.info('Batch browse IMDb pages of the movies')
     ids_movies = batch_browse_imdb(ids)
 
@@ -280,8 +280,10 @@ if __name__ == '__main__':
             logger.error('No wikipage found for {} - {}'.format(ids, ids_movies[id]))
 
     logger.info('Write ids_pages to json file')    
-    with open('./ids_pages.json', 'w') as f:
-        json.dump(ids_pages, f)
+    
+    with open('./ids_pages.json', 'r') as f1, open('./ids_movies.json', 'r') as f2:
+        ids_pages = json.load(f1)
+        ids_movies = json.load(f2)
 
     logger.info('Batch browse wikipedia pages of the movies')
     pages = list(ids_pages.values())
@@ -290,14 +292,23 @@ if __name__ == '__main__':
     ids_plots = dict()
     for id in ids_pages:
         # now ids_pages' values are movie plots
-        ids_plots[id] = pages_plots[ids_pages[id]]
+        try:
+            ids_plots[id] = pages_plots[ids_pages[id]]
+        except Exception as e:
+            logger.error('No wiki plot found for {} - {}. Keep field plot_summary as original' \
+                         .format(id, ids_movies[id]))
+
+    logger.info('Write ids_plots to json file')
+    with open('./ids_plots.json', 'w') as f:
+        json.dump(ids_plots, f)
+
     for row in df_movies.iterrows():
         # modify original plot_summary to the one we get from wikipedia
         try:
             row['plot_summary'] = ids_plots[row['movie_id']]
         except Exception as e:
-            logger.error('No wiki plot for {} - {}. Keep filed plot_summary as original' \
-                           .format(ids, ids_movies[ids]))
+            logger.warning('No wiki plot for {} - {}. Keep field plot_summary as original' \
+                           .format(id, ids_movies[id]))
 
     logger.info('Finish! save dataframe to ../data/imdb/plot.csv')
     df_movies.to_csv('../data/imdb/plot.csv')
