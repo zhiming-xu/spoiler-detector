@@ -135,11 +135,11 @@ def search_google(query):
     header = random.choice(USER_AGENTS)
     
     try:
-        page = requests.get(url=google_url, headers=header, timeout=5, proxies={"https": "socks5h://localhost:1080"}).text
+        page = requests.get(url=google_url, headers=header, timeout=5).text
     except Exception as e:
         logger.error('Exception {} occurs in search'.format(e))
         if google_prefix != GOOGLE_SITES[0]:
-            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3, proxies={"https": "socks5h://localhost:1080"}).text
+            page = requests.get(url=GOOGLE_SITES[0]+query, headers=header, timeout=3) 
         else:
             return None
 
@@ -199,7 +199,6 @@ def browse_wiki(page):
     params = WIKI_BROWSE_PARAMS
     params['page'] = page
     session = requests.Session()
-    session.proxies.update({"https": "socks5h://localhost:1080"})
     try:
         raw_data = session.get(url=WIKI_URL, params=params, timeout=5).json()
     except Exception as e:
@@ -260,7 +259,7 @@ def plot_extractor(raw_plot):
 if __name__ == '__main__':
     logger.info('Load original json file as pandas dataframe')
     # hard code for now
-    df_movies = pd.read_json('./data/imdb/IMDB_movie_details.json', lines=True)
+    df_movies = pd.read_json('../data/imdb/IMDB_movie_details.json', lines=True)
     ids = df_movies['movie_id'].tolist()
 
     logger.info('Batch browse IMDb pages of the movies')
@@ -300,5 +299,5 @@ if __name__ == '__main__':
             logger.error('No wiki plot for {} - {}. Keep filed plot_summary as original' \
                            .format(ids, ids_movies[ids]))
 
-    logger.info('Finish! save dataframe to ./data/imdb/plot.csv')
-    df_movies.to_csv('./data/imdb/plot.csv')
+    logger.info('Finish! save dataframe to ../data/imdb/plot.csv')
+    df_movies.to_csv('../data/imdb/plot.csv')
