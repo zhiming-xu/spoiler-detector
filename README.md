@@ -48,7 +48,7 @@ where the softmax is applied on along the columns of input matrix.
 #### Information enhancement and composition
 After calculating these hidden representations, it is expected that their combinations can help improve performance, which is $\vec{m}_p=[\bar{\vec{p}};\tilde{\vec{p}};\bar{\vec{p}}-\tilde{\vec{p}};\bar{\vec{p}}∘\tilde{\vec{p}}]$, and $\vec{m}_h=[\bar{\vec{h}};\tilde{\vec{h}};\bar{\vec{h}}-\tilde{\vec{h}};\bar{\vec{h}}∘\tilde{\vec{h}}]$. The information is further composited with another bi-lstm different from the one used for encoding sentence. The outputs are thus $\vec{v}_p^{l_p\times 2u}$ and $\vec{v}_h^{l_h\times 2u}$.
 #### Pooling and output layer
-Both average and max pooling are applied on the matrix $\vec{v}_{p/h}$ along the rows. The result is four $2u$-dimensional vectors, i.e., $\vec{v}_{p,\text{ avg}}$, $\vec{v}_{p,\text{ max}}$, $\vec{v}_{h,\text{ avg}}$, and $\vec{v}_{h,\text{ max}}$. They are concatenated together and connected to the final fc layer to produce output.
+Both average and max pooling are applied on the matrix $\vec{v}_{\frac{p}{h}}$ along the rows. The result is four $2u$-dimensional vectors, i.e., $\vec{v}_{p,\text{ avg}}$, $\vec{v}_{p,\text{ max}}$, $\vec{v}_{h,\text{ avg}}$, and $\vec{v}_{h,\text{ max}}$. They are concatenated together and connected to the final fc layer to produce output.
 #### Visualize result
 The training and validation accuracy and f1 score curves are as follows.
 ![acc](images/acc-esim-1.png)
