@@ -4,7 +4,7 @@
 # IMDb ID (in the format of regex r'^tt\d{7}$')
 # Note: Due to constant network error when browsing imdb/google,
 # I cannot guarantee that this script runs smoothly. So many
-# checkpoints is instered to minimize potential data loss.
+# checkpoints is inserted to minimize potential data loss.
 import requests
 import random
 import multiprocessing as mp
